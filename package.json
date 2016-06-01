@@ -1,0 +1,29 @@
+{
+  "name": "hetzner-api-client",
+  "version": "0.0.1",
+  "description": "A NodeJS client for the Hetzner Robot API",
+  "keywords": [
+    "hetzner",
+    "api",
+    "client"
+  ],
+  "homepage": "https://github.com/Radiergummi/hetzner-api-client",
+
+  "bugs": {
+    "url": "https://github.com/Radiergummi/hetzner-api-client/issues",
+    "email": "m@9dev.de"
+  },
+
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Radiergummi/hetzner-api-client"
+  },
+
+  "license": "Apache-2.0",
+  "author": "Moritz Friedrich <m@9dev.de> (http://moritzfriedrich.com)",
+
+  "dependencies": {
+    "colors": "^1.1.2",
+    "node-rest-client": "^1.8.0"
+  }
+}
