@@ -1,5 +1,7 @@
 # hetzner-api-client
-A nodeJS client for the Hetzner Robot API
+A nodeJS client for the Hetzner Robot API  
+
+*Please note: I am in no way affiliated with Hetzner Online GmbH. I am just a developer trying to ease his work with a flexible API client.*
 
 ## Installation
 Install using NPM: 
@@ -52,6 +54,9 @@ Error messages are structured like so:
 ````
 
 Oh. Did I mention the client is completely promise-based? It will always return a promise to your requests.
+
+## Current status
+I'm still in the process of adding API methods. Currently, around 40% are implemented, some need a final naming scheme and if necessary, some more will be rewritten. So even if the current version works as is, you should not rely on this in production. Though of course you can speed this up by committing :)
 
 ## API Documentation
 Official API docs can be found [here](https://wiki.hetzner.de/index.php/Robot_Webservice/en).
