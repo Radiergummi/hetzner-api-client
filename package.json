@@ -1,6 +1,6 @@
 {
   "name": "hetzner-api-client",
-  "version": "0.0.6",
+  "version": "0.1.0",
   "description": "A NodeJS client for the Hetzner Robot API",
   "keywords": [
     "hetzner",
