@@ -55,6 +55,19 @@ Error messages are structured like so:
 
 Oh. Did I mention the client is completely promise-based? It will always return a promise to your requests.
 
+### Custom server proxies
+Say you own one or two servers and want to execute multiple methods on them. Kind of enervating to have to specify the server IP each time, isn't it? Therefore, you can (since `0.0.5`) create a proxy:
+
+````javascript
+robot.registerServer('thanos', '123.123.123.123');
+
+// see? no additional IP parameter necessary.
+robot.server.thanos.queryReverseDns().then( /* ... */ )
+robot.server.thanos.updateReverseDns('new.pointer.record.tld').then( /* ... */ )
+````
+
+Keep in mind, however, that this really relies on ES6 proxies and requires a Node.JS version >=6.2.0 (see [here](http://node.green/))
+
 ## Current status
 I'm still in the process of adding API methods. Currently, around 40% are implemented, some need a final naming scheme and if necessary, some more will be rewritten. So even if the current version works as is, you should not rely on this in production. Though of course you can speed this up by committing :)
 
