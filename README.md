@@ -24,7 +24,7 @@ var APIClient = require('hetzner-api-client'),
 The client is all ready now and you can start using its methods:
 
 ````javascript
-robot.reverseDns.get('123.123.123.123').then(
+robot.queryReverseDns('123.123.123.123').then(
   response => console.log(response),
   error => console.error(error)
 );
