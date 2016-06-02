@@ -82,14 +82,67 @@ Robot = function(config) {
     }
   };
 
+  var _self = this;
+
 
   /**
+   * Proxies method calls to servers to the API methods while supplementing the IP of a registered Server
+   * TODO: Finish the Proxy call even to nested methods
    *
+   * @public
    *
-   * @param {string} ipAddress
+   * @param serverName
+   * @returns {Object}
    */
-  this.use = function(ipAddress) {
-    // TODO: Implement proxy?
+  this.servers = function(serverName) {
+    if (_customServers.hasOwnProperty(serverName)) {
+      return Object.create(new Proxy({}, {
+          get: function(receiver, methodName) {
+
+            if (_self.hasOwnProperty(methodName)) {
+              return function(/* arguments */) {
+                return 'call for ' + methodName + ' on server ' + serverName + ' which has the IP ' + _customServers[ serverName ] + '.';
+                //return _self[method].apply(_self, arguments);
+              };
+            } else {
+              return function() {
+                console.error('The method ' + methodName + ' is not implemented. Args: ', arguments);
+              }
+            }
+          }
+        }
+      ));
+    }
+  };
+
+
+  /**
+   * Contains custom servers and their IP addresses
+   *
+   * @private
+   *
+   * @type {{}}
+   */
+  var _customServers = {};
+
+  /**
+   * Allows to register a server to apply API methods onto
+   *
+   * @public
+   *
+   * @param serverName
+   * @param ipAddress
+   */
+  this.registerServer = function(serverName, ipAddress) {
+    if (typeof serverName === 'undefined') {
+      throw new Error('No server name given.');
+    }
+
+    if (_customServers.hasOwnProperty(serverName)) {
+      throw new Error('The server ' + serverName + ' is already registered in this instance.');
+    }
+
+    _customServers[serverName] = ipAddress;
   };
 
 
@@ -1325,6 +1378,7 @@ Robot = function(config) {
   this.ssh.key = function(fingerprint) {
     return this.keys(fingerprint);
   }
-};
+}
+;
 
 module.exports = Robot;
