@@ -66,6 +66,16 @@ robot.server.thanos.queryReverseDns().then( /* ... */ )
 robot.server.thanos.updateReverseDns('new.pointer.record.tld').then( /* ... */ )
 ````
 
+Alternatively, create a variable for your proxy:
+
+````javascript
+var thanos = robot.registerServer('thanos', '123.123.123.123');
+
+thanos.queryReverseDns().then( /* ... */ )
+thanos.updateReverseDns('new.pointer.record.tld').then( /* ... */ )
+````
+
+
 Keep in mind, however, that this really relies on ES6 proxies and requires a Node.JS version >=6.2.0 (see [here](http://node.green/))
 
 ## Current status
