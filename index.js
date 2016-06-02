@@ -200,8 +200,9 @@ Robot = function (config) {
    *
    * @public
    *
-   * @param {string} serverName  the server to register
-   * @param {string} ipAddress   the server's IP address
+   * @param   {string} serverName  the server to register
+   * @param   {string} ipAddress   the server's IP address
+   * @returns {Robot}              the server instance of the API client
    */
   this.registerServer = function (serverName, ipAddress) {
     if (typeof serverName === 'undefined') {
@@ -213,6 +214,8 @@ Robot = function (config) {
     }
 
     _customServers[ serverName ] = ipAddress;
+    
+    return this.server[ serverName ];
   };
 
 
