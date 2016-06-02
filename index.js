@@ -6,31 +6,47 @@
  */
 
 var colors = require('colors'),
-    Client = require('node-rest-client').Client,
-    Robot;
+  Client = require('node-rest-client').Client,
+  Robot;
 
 /**
  * Creates a new instance of the API client
  *
- * @param {object} config           the configuration object with API connection details
- * @param {string} config.baseUrl   the base URL for the Hetzner API, should it change
- * @param {string} config.username  the username for the Hetzner API
- * @param {string} config.password  the password for the Hetzner API
+ * @param {object} config            the configuration object with API connection details
+ * @param {string} [config.baseUrl]  the base URL for the Hetzner API, should it change
+ * @param {string} config.username   the username for the Hetzner API
+ * @param {string} config.password   the password for the Hetzner API
  *
  * @constructor
  */
-Robot = function(config) {
+Robot = function (config) {
 
   // check if we received a config object
   if (typeof config === 'undefined') {
     throw new Error('Missing configuration data');
   }
 
+  // set the base URL to the API if it has not been overwritten by configuration
+  if (! config.hasOwnProperty('baseUrl')) {
+    config.baseUrl = 'https://robot-ws.your-server.de/';
+  }
+
+  /**
+   * the current instance for reference in other scopes
+   *
+   * @private
+   *
+   * @type {Robot}
+   */
+  var _self = this;
+
+
   /**
    * The API client which carries out the network communication
    *
-   * @type {exports.Client}
    * @private
+   *
+   * @type {exports.Client}
    */
   var _apiClient = new Client({
 
@@ -53,6 +69,16 @@ Robot = function(config) {
   });
 
   /**
+   * Contains custom servers and their IP addresses
+   *
+   * @private
+   *
+   * @type {{}}
+   */
+  var _customServers = {};
+
+
+  /**
    * try to parse the response object to JSON. If this fails,
    * simply stringify it.
    *
@@ -65,10 +91,10 @@ Robot = function(config) {
    *
    * @returns {*}
    */
-  var _parseResponse = function(response, rawData, resolve, reject) {
+  var _parseResponse = function (response, rawData, resolve, reject) {
 
     // check if we have a negative response code
-    if (!(rawData.statusCode === 200 || rawData.statusCode === 201)) {
+    if (! (rawData.statusCode === 200 || rawData.statusCode === 201)) {
       return reject((response.error.code + ': ' + response.error.message).red);
     }
 
@@ -82,58 +108,102 @@ Robot = function(config) {
     }
   };
 
-  var _self = this;
-
 
   /**
-   * Proxies method calls to servers to the API methods while supplementing the IP of a registered Server
-   * TODO: Finish the Proxy call even to nested methods
+   * Proxies method calls to servers to the API methods while supplementing the IP of a registered
+   * Server TODO: Finish the Proxy call even to nested methods
    *
    * @public
    *
    * @param serverName
    * @returns {Object}
    */
-  this.servers = function(serverName) {
-    if (_customServers.hasOwnProperty(serverName)) {
-      return Object.create(new Proxy({}, {
-          get: function(receiver, methodName) {
+  this.server = Object.create(new Proxy({}, {
 
-            if (_self.hasOwnProperty(methodName)) {
-              return function(/* arguments */) {
-                return 'call for ' + methodName + ' on server ' + serverName + ' which has the IP ' + _customServers[ serverName ] + '.';
-                //return _self[method].apply(_self, arguments);
-              };
-            } else {
-              return function() {
-                console.error('The method ' + methodName + ' is not implemented. Args: ', arguments);
+      /**
+       * The first getter allows to proxy property calls to the _customServers object. Basically,
+       * this is just for convenience and better syntax: Instead of using a function with a
+       * parameter for the server name ("robot.server('myServerName').apiMethod()"), you can simply
+       * use "robot.server.myServerName.apiMethod()".
+       * The advantage of this additional proxy is that servers don't have to be added to the
+       * api client object as properties where they could possibly overwrite its existing properties
+       * and pollute the clients namespace (could become fun to call
+       * "robot.server.myServer.myServer.myServer...").
+       *
+       * @param   {object}   target      the proxy call target
+       * @param   {string}   serverName  the server name as the called property on the proxy
+       * @returns {Object}
+       */
+      get: function (target, serverName) {
+        // whether the given server exists
+        if (_customServers.hasOwnProperty(serverName)) {
+
+          /**
+           * Create a new Proxy object: That step is needed to intercept method calls to insert our
+           * own, additional argument.
+           */
+          return Object.create(new Proxy({}, {
+
+              /**
+               * traps property getter calls. That way, we can check whether the requested method
+               * even exists on the parent object and if so, further manipulate the call.
+               *
+               * @param   {object}   target      the proxy call target
+               * @param   {string}   methodName  the method as called on the proxy
+               * @returns {Function}
+               */
+              get: function (target, methodName) {
+
+                // whether the api client object contains the called method
+                if (_self.hasOwnProperty(methodName)) {
+
+                  /**
+                   * return a new function (to make the function name callable) that adds the
+                   * server IP as the first argument to the function call, which essentially
+                   * enables calling methods on a single server without having to specify the IP
+                   * separately each time.
+                   *
+                   * I know this is a bit voodoo, but I haven't come up with a better idea yet.
+                   * Maybe some prototype inheritance?
+                   */
+                  return function (/* arguments */) {
+
+                    // "Arrayify" arguments
+                    var args = Array.prototype.slice.call(arguments);
+
+                    // push the server IP into the args array (unshift for first arg)
+                    args.unshift(_customServers[ serverName ]);
+
+                    // call the API method with itself as context and the args
+                    return _self[ methodName ].apply(_self, args);
+                  };
+                } else {
+
+                  /**
+                   * The requested method does not exist, so we throw an exception.
+                   */
+                  return function () {
+                    throw new Error('The method ' + methodName + ' is not implemented. Args: ', arguments);
+                  }
+                }
               }
             }
-          }
+          ));
         }
-      ));
+      }
     }
-  };
+  ));
 
-
-  /**
-   * Contains custom servers and their IP addresses
-   *
-   * @private
-   *
-   * @type {{}}
-   */
-  var _customServers = {};
 
   /**
    * Allows to register a server to apply API methods onto
    *
    * @public
    *
-   * @param serverName
-   * @param ipAddress
+   * @param {string} serverName  the server to register
+   * @param {string} ipAddress   the server's IP address
    */
-  this.registerServer = function(serverName, ipAddress) {
+  this.registerServer = function (serverName, ipAddress) {
     if (typeof serverName === 'undefined') {
       throw new Error('No server name given.');
     }
@@ -142,18 +212,28 @@ Robot = function(config) {
       throw new Error('The server ' + serverName + ' is already registered in this instance.');
     }
 
-    _customServers[serverName] = ipAddress;
+    _customServers[ serverName ] = ipAddress;
   };
 
 
   /**
-   * Object to group information related API methods
+   * Allows to unregister a server
    *
    * @public
    *
-   * @type {{}}
+   * @param {string} serverName  the server to unregister
    */
-  this.info = {};
+  this.unregisterServer = function (serverName) {
+    if (typeof serverName === 'undefined') {
+      throw new Error('No server name given.');
+    }
+
+    if (! _customServers.hasOwnProperty(serverName)) {
+      throw new Error('The server ' + serverName + ' is not registered in this instance yet.');
+    }
+
+    delete _customServers[ serverName ];
+  };
 
 
   /**
@@ -162,7 +242,7 @@ Robot = function(config) {
    * @public
    * @returns {Promise}  a promise containing the API response when ready
    */
-  this.info.servers = function() {
+  this.queryServers = function () {
     return new Promise((resolve, reject) => {
       _apiClient.get(
         config.baseUrl + 'server',
@@ -180,7 +260,7 @@ Robot = function(config) {
    * @param {string} ipAddress  the IP address of the client server
    * @returns {Promise}  a promise containing the API response when ready
    */
-  this.info.server = function(ipAddress) {
+  this.queryServer = function (ipAddress) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
     }
@@ -202,7 +282,7 @@ Robot = function(config) {
    * @param {string} ipAddress  the IP address of the client server
    * @returns {Promise}  a promise containing the API response when ready
    */
-  this.info.ips = function(ipAddress) {
+  this.queryIps = function (ipAddress) {
     var data = {};
 
     if (typeof ipAddress !== 'undefined') {
@@ -228,7 +308,7 @@ Robot = function(config) {
    * @param   {string} ipAddress  the IP address of the client server
    * @returns {Promise}           a promise containing the API response when ready
    */
-  this.info.ip = function(ipAddress) {
+  this.queryIp = function (ipAddress) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
     }
@@ -249,7 +329,7 @@ Robot = function(config) {
    * @param {string} [ipAddress]  an optional IP parameter to query a single server
    * @returns {Promise}
    */
-  this.info.reset = function(ipAddress) {
+  this.queryReset = function (ipAddress) {
     var url = config.baseUrl + 'reset' + (typeof ipAddress === 'undefined' ? '' : '/' + ipAddress);
 
     return new Promise((resolve, reject) => {
@@ -268,7 +348,7 @@ Robot = function(config) {
    * @param {string} ipAddress  the IP address of the client server
    * @returns {Promise}
    */
-  this.info.wol = function(ipAddress) {
+  this.queryWol = function (ipAddress) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
     }
@@ -283,12 +363,6 @@ Robot = function(config) {
 
 
   /**
-   * Boot methods
-   * @public
-   */
-  this.boot = {};
-
-  /**
    * Query boot configuration
    *
    * @public
@@ -296,7 +370,7 @@ Robot = function(config) {
    * @param {string} ipAddress  the IP address of the client server
    * @returns {Promise}
    */
-  this.boot.config = function(ipAddress) {
+  this.queryBootConfig = function (ipAddress) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
     }
@@ -311,14 +385,6 @@ Robot = function(config) {
 
 
   /**
-   * rescue system methods
-   * @public
-   *
-   * @type {{}}
-   */
-  this.boot.rescue = {};
-
-  /**
    * Query rescue system boot configuration
    *
    * @public
@@ -326,7 +392,7 @@ Robot = function(config) {
    * @param {string} ipAddress  the IP address of the client server
    * @returns {Promise}
    */
-  this.boot.rescue.config = function(ipAddress) {
+  this.queryRescueBootConfig = function (ipAddress) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
     }
@@ -345,12 +411,13 @@ Robot = function(config) {
    * @public
    *
    * @param   {string} ipAddress         the IP address of the client server
-   * @param   {string} operatingSystem   the rescue OS to boot (one of linux, linuxold, freebsd, freebsdbeta, vkvm)
+   * @param   {string} operatingSystem   the rescue OS to boot (one of linux, linuxold, freebsd,
+   *   freebsdbeta, vkvm)
    * @param   {string} [architecture]    optional architecture to use, defaults to 64 Bit
    * @param   {Array}  [keys]            optional key fingerprints to import into SSH configuration
    * @returns {Promise}
    */
-  this.boot.rescue.enable = function(ipAddress, operatingSystem, architecture, keys) {
+  this.enableRescueBoot = function (ipAddress, operatingSystem, architecture, keys) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
     }
@@ -386,7 +453,7 @@ Robot = function(config) {
    * @param {string} ipAddress  the IP address of the client server
    * @returns {Promise}
    */
-  this.boot.rescue.disable = function(ipAddress) {
+  this.disableRescueBoot = function (ipAddress) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
     }
@@ -407,7 +474,7 @@ Robot = function(config) {
    * @param {string} ipAddress  the IP address of the client server
    * @returns {Promise}
    */
-  this.boot.rescue.last = function(ipAddress) {
+  this.queryLastRescueBoot = function (ipAddress) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
     }
@@ -422,14 +489,6 @@ Robot = function(config) {
 
 
   /**
-   * linux installation methods
-   * @public
-   *
-   * @type {{}}
-   */
-  this.boot.linux = {};
-
-  /**
    * Query available boot options for linux installation
    *
    * @public
@@ -437,7 +496,7 @@ Robot = function(config) {
    * @param {string} ipAddress  the IP address of the client server
    * @returns {Promise}
    */
-  this.boot.linux.config = function(ipAddress) {
+  this.queryLinuxBootConfig = function (ipAddress) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
     }
@@ -459,17 +518,18 @@ Robot = function(config) {
    * @param   {object} options                 an object containing installation options
    * @param   {string} options.distribution    the linux distribution to install
    * @param   {number} [options.architecture]  optional architecture to use, defaults to 64 Bit
-   * @param   {string} [options.language]      optional language to install the system in, defaults to en (english)
+   * @param   {string} [options.language]      optional language to install the system in, defaults
+   *   to en (english)
    * @param   {Array}  [options.keys]          optional key fingerprints to import into SSH
    *                                           configuration
    * @returns {Promise}
    */
-  this.boot.linux.enable = function(ipAddress, options) {
+  this.enableLinuxBoot = function (ipAddress, options) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
     }
 
-    if (!options.hasOwnProperty('distribution')) {
+    if (! options.hasOwnProperty('distribution')) {
       throw new Error('Installation distribution is missing.');
     }
 
@@ -499,7 +559,7 @@ Robot = function(config) {
    * @param {string} ipAddress  the IP address of the client server
    * @returns {Promise}
    */
-  this.boot.linux.disable = function(ipAddress) {
+  this.disableLinuxBoot = function (ipAddress) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
     }
@@ -520,7 +580,7 @@ Robot = function(config) {
    * @param {string} ipAddress  the IP address of the client server
    * @returns {Promise}
    */
-  this.boot.linux.last = function(ipAddress) {
+  this.queryLastLinuxBoot = function (ipAddress) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
     }
@@ -535,14 +595,6 @@ Robot = function(config) {
 
 
   /**
-   * vnc installation methods
-   * @public
-   *
-   * @type {{}}
-   */
-  this.boot.vnc = {};
-
-  /**
    * Query available boot options for vnc installation
    *
    * @public
@@ -550,7 +602,7 @@ Robot = function(config) {
    * @param {string} ipAddress  the IP address of the client server
    * @returns {Promise}
    */
-  this.boot.vnc.config = function(ipAddress) {
+  this.queryVncBootConfig = function (ipAddress) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
     }
@@ -576,12 +628,12 @@ Robot = function(config) {
    *                                           to en (english)
    * @returns {Promise}
    */
-  this.boot.vnc.enable = function(ipAddress, options) {
+  this.enableVncBoot = function (ipAddress, options) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
     }
 
-    if (!options.hasOwnProperty('distribution')) {
+    if (! options.hasOwnProperty('distribution')) {
       throw new Error('Installation distribution is missing.');
     }
 
@@ -610,7 +662,7 @@ Robot = function(config) {
    * @param {string} ipAddress  the IP address of the client server
    * @returns {Promise}
    */
-  this.boot.vnc.disable = function(ipAddress) {
+  this.disableVncBoot = function (ipAddress) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
     }
@@ -625,14 +677,6 @@ Robot = function(config) {
 
 
   /**
-   * Windows installation methods
-   * @public
-   *
-   * @type {{}}
-   */
-  this.boot.windows = {};
-
-  /**
    * Query available boot options for windows installation
    *
    * @public
@@ -640,7 +684,7 @@ Robot = function(config) {
    * @param {string} ipAddress  the IP address of the client server
    * @returns {Promise}
    */
-  this.boot.windows.config = function(ipAddress) {
+  this.queryWindowsBootConfig = function (ipAddress) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
     }
@@ -662,7 +706,7 @@ Robot = function(config) {
    * @param   {string} [language]  optional installation language. defaults to en (english)
    * @returns {Promise}
    */
-  this.boot.windows.enable = function(ipAddress, language) {
+  this.enableWindowsBoot = function (ipAddress, language) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
     }
@@ -690,7 +734,7 @@ Robot = function(config) {
    * @param {string} ipAddress  the IP address of the client server
    * @returns {Promise}
    */
-  this.boot.windows.disable = function(ipAddress) {
+  this.disableWindowsBoot = function (ipAddress) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
     }
@@ -705,15 +749,6 @@ Robot = function(config) {
 
 
   /**
-   * Plesk installation methods
-   *
-   * @public
-   *
-   * @type {{}}
-   */
-  this.boot.plesk = {};
-
-  /**
    * Query available boot options for plesk installation
    *
    * @public
@@ -721,7 +756,7 @@ Robot = function(config) {
    * @param {string} ipAddress  the IP address of the client server
    * @returns {Promise}
    */
-  this.boot.plesk.config = function(ipAddress) {
+  this.queryPleskBootConfig = function (ipAddress) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
     }
@@ -743,20 +778,21 @@ Robot = function(config) {
    * @param   {object} options                 options configuration
    * @param   {string} options.distribution    the linux distribution to use as install base
    * @param   {number} [options.architecture]  optional architecture to use, defaults to 64 Bit
-   * @param   {string} [options.language]      optional installation language. defaults to en (english)
+   * @param   {string} [options.language]      optional installation language. defaults to en
+   *   (english)
    * @param   {string} options.hostname        the hostname for the new plesk installation
    * @returns {Promise}
    */
-  this.boot.plesk.enable = function(ipAddress, options) {
+  this.enablePleskBoot = function (ipAddress, options) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
     }
 
-    if (!options.hasOwnProperty('distribution')) {
+    if (! options.hasOwnProperty('distribution')) {
       throw new Error('Installation distribution is missing.');
     }
 
-    if (!options.hasOwnProperty('hostname')) {
+    if (! options.hasOwnProperty('hostname')) {
       throw new Error('Installation hostname is missing.');
     }
 
@@ -787,7 +823,7 @@ Robot = function(config) {
    * @param {string} ipAddress  the IP address of the client server
    * @returns {Promise}
    */
-  this.boot.plesk.disable = function(ipAddress) {
+  this.disablePleskBoot = function (ipAddress) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
     }
@@ -802,15 +838,6 @@ Robot = function(config) {
 
 
   /**
-   * CPanel installation methods
-   *
-   * @public
-   *
-   * @type {{}}
-   */
-  this.boot.cpanel = {};
-
-  /**
    * Query available boot options for CPanel installation
    *
    * @public
@@ -818,7 +845,7 @@ Robot = function(config) {
    * @param {string} ipAddress  the IP address of the client server
    * @returns {Promise}
    */
-  this.boot.cpanel.config = function(ipAddress) {
+  this.queryCpanelBootConfig = function (ipAddress) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
     }
@@ -832,7 +859,7 @@ Robot = function(config) {
   };
 
   /**
-   * Enable CP installation
+   * Enable CPanel installation
    *
    * @public
    *
@@ -840,20 +867,21 @@ Robot = function(config) {
    * @param   {object} options                 options configuration
    * @param   {string} options.distribution    the linux distribution to use as install base
    * @param   {number} [options.architecture]  optional architecture to use, defaults to 64 Bit
-   * @param   {string} [options.language]      optional installation language. defaults to en (english)
+   * @param   {string} [options.language]      optional installation language. defaults to en
+   *                                           (english)
    * @param   {string} options.hostname        the hostname for the new plesk installation
    * @returns {Promise}
    */
-  this.boot.cpanel.enable = function(ipAddress, options) {
+  this.enableCpanelBoot = function (ipAddress, options) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
     }
 
-    if (!options.hasOwnProperty('distribution')) {
+    if (! options.hasOwnProperty('distribution')) {
       throw new Error('Installation distribution is missing.');
     }
 
-    if (!options.hasOwnProperty('hostname')) {
+    if (! options.hasOwnProperty('hostname')) {
       throw new Error('Installation hostname is missing.');
     }
 
@@ -884,7 +912,7 @@ Robot = function(config) {
    * @param {string} ipAddress  the IP address of the client server
    * @returns {Promise}
    */
-  this.boot.cpanel.disable = function(ipAddress) {
+  this.disableCpanelBoot = function (ipAddress) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
     }
@@ -899,14 +927,6 @@ Robot = function(config) {
 
 
   /**
-   * Server methods
-   * @public
-   *
-   * @type {{}}
-   */
-  this.server = {};
-
-  /**
    * change a client server's name
    *
    * @public
@@ -915,7 +935,7 @@ Robot = function(config) {
    * @param   {string}  newName    the new server name
    * @returns {Promise}            a promise containing the API response when ready
    */
-  this.server.setName = function(ipAddress, newName) {
+  this.setServerName = function (ipAddress, newName) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
     }
@@ -943,10 +963,11 @@ Robot = function(config) {
    * @public
    *
    * @param   {string}  ipAddress    the IP address of the client server
-   * @param   {string}  [resetType]  the reset type to perform (one of sw, hw or man). defaults to sw (software reset)
+   * @param   {string}  [resetType]  the reset type to perform (one of sw, hw or man). defaults to
+   *   sw (software reset)
    * @returns {Promise}              a promise containing the API response when ready
    */
-  this.server.reset = function(ipAddress, resetType) {
+  this.resetServer = function (ipAddress, resetType) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
     }
@@ -974,7 +995,7 @@ Robot = function(config) {
    * @param   {string}  ipAddress    the IP address of the client server
    * @returns {Promise}              a promise containing the API response when ready
    */
-  this.server.wol = function(ipAddress) {
+  this.wakeServer = function (ipAddress) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
     }
@@ -994,14 +1015,6 @@ Robot = function(config) {
 
 
   /**
-   * Reverse DNS methods
-   * @public
-   *
-   * @type {{}}
-   */
-  this.reverseDns = {};
-
-  /**
    * Query reverse DNS entries for either a single or all client servers
    *
    * @public
@@ -1009,7 +1022,7 @@ Robot = function(config) {
    * @param {string} [ipAddress]  optional IP address of a specific client server
    * @returns {Promise}
    */
-  this.reverseDns.get = function(ipAddress) {
+  this.queryReverseDns = function (ipAddress) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
     }
@@ -1033,7 +1046,7 @@ Robot = function(config) {
    * @param   {string}  pointerRecord  the DNS name to point to
    * @returns {Promise}                a promise containing the API response when ready
    */
-  this.reverseDns.set = function(ipAddress, pointerRecord) {
+  this.setReverseDns = function (ipAddress, pointerRecord) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
     }
@@ -1066,7 +1079,7 @@ Robot = function(config) {
    * @param   {string}  pointerRecord  the DNS name to point to
    * @returns {Promise}                a promise containing the API response when ready
    */
-  this.reverseDns.update = function(ipAddress, pointerRecord) {
+  this.updateReverseDns = function (ipAddress, pointerRecord) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
     }
@@ -1098,7 +1111,7 @@ Robot = function(config) {
    * @param   {string}  ipAddress      the IP address of the client server
    * @returns {Promise}                a promise containing the API response when ready
    */
-  this.reverseDns.remove = function(ipAddress) {
+  this.removeReverseDns = function (ipAddress) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
     }
@@ -1113,14 +1126,6 @@ Robot = function(config) {
 
 
   /**
-   * Cancellation methods
-   * @public
-   *
-   * @type {{}}
-   */
-  this.cancellation = {};
-
-  /**
    * query a client server's cancellation status
    *
    * @public
@@ -1128,7 +1133,7 @@ Robot = function(config) {
    * @param   {string}   ipAddress  the IP address of the client server
    * @returns {Promise}             a promise containing the API response when ready
    */
-  this.cancellation.status = function(ipAddress) {
+  this.queryCancellationStatus = function (ipAddress) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
     }
@@ -1151,7 +1156,7 @@ Robot = function(config) {
    * @param   {string} [cancellationReason]  an optional cancellation reason
    * @returns {Promise}                      a promise containing the API response when ready
    */
-  this.cancellation.create = function(ipAddress, cancellationDate, cancellationReason) {
+  this.createCancellation = function (ipAddress, cancellationDate, cancellationReason) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
     }
@@ -1182,7 +1187,7 @@ Robot = function(config) {
    * @param   {string} ipAddress  the IP address of the client server
    * @returns {Promise}           a promise containing the API response when ready
    */
-  this.cancellation.cancel = function(ipAddress) {
+  this.removeCancellation = function (ipAddress) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
     }
@@ -1197,16 +1202,6 @@ Robot = function(config) {
 
 
   /**
-   * Traffic methods
-   * @public
-   *
-   * @type {{}}
-   */
-  this.traffic = {
-    statistics: {}
-  };
-
-  /**
    * wrapper method for day statistics
    *
    * @public
@@ -1214,7 +1209,7 @@ Robot = function(config) {
    * @param options
    * @returns {Promise}
    */
-  this.traffic.statistics.day = function(options) {
+  this.queryDailyStatistics = function (options) {
     options.type = 'day';
 
     return this.get(options);
@@ -1228,7 +1223,7 @@ Robot = function(config) {
    * @param options
    * @returns {Promise}
    */
-  this.traffic.statistics.month = function(options) {
+  this.queryMonthlyStatistics = function (options) {
     options.type = 'month';
 
     return this.get(options);
@@ -1242,7 +1237,7 @@ Robot = function(config) {
    * @param options
    * @returns {Promise}
    */
-  this.traffic.statistics.year = function(options) {
+  this.queryYearlyStatistics = function (options) {
     options.type = 'year';
 
     return this.get(options);
@@ -1254,16 +1249,18 @@ Robot = function(config) {
    * @public
    *
    * @param   {object}       options                statistics options
-   * @param   {Array|string} [options.ipAddresses]  either an array of IPs or a single IP string to query
-   * @param   {Array|string} [options.subnets]      either an array of subnets or a single subnet string to query
-   * @param   {string}       [options.rangeFrom]    optional date-time string to start the statistics at. Will default
-   *                                                to today, 0 AM.
-   * @param   {string}       [options.rangeTo]      optional date-time string to end the statistics at. Will default to
-   *                                                current hour of today.
+   * @param   {Array|string} [options.ipAddresses]  either an array of IPs or a single IP string to
+   *   query
+   * @param   {Array|string} [options.subnets]      either an array of subnets or a single subnet
+   *   string to query
+   * @param   {string}       [options.rangeFrom]    optional date-time string to start the
+   *   statistics at. Will default to today, 0 AM.
+   * @param   {string}       [options.rangeTo]      optional date-time string to end the statistics
+   *   at. Will default to current hour of today.
    * @param   {string}       [options.type]         the query type
    * @returns {Promise}
    */
-  this.traffic.statistics.get = function(options) {
+  this.queryStatistics = function (options) {
     // TODO: Finish method
     var data = {};
 
@@ -1283,16 +1280,19 @@ Robot = function(config) {
    *
    * @public
    *
-   * @param   {string}  ipAddress                                     the IP address of the client server
-   * @param   {object}  trafficWarningConfiguration                   an object containing the individual traffic
-   *                                                                  warning configuration keys
-   * @param   {boolean} trafficWarningConfiguration.enableWarnings    enable or disable traffic warnings
+   * @param   {string}  ipAddress                                     the IP address of the client
+   *   server
+   * @param   {object}  trafficWarningConfiguration                   an object containing the
+   *   individual traffic warning configuration keys
+   * @param   {boolean} trafficWarningConfiguration.enableWarnings    enable or disable traffic
+   *   warnings
    * @param   {number}  trafficWarningConfiguration.hourlyThreshold   hourly traffic limit in MB
    * @param   {number}  trafficWarningConfiguration.dailyThreshold    daily traffic limit in MB
    * @param   {number}  trafficWarningConfiguration.monthlyThreshold  monthly traffic limit in MB
-   * @returns {Promise}                                               a promise containing the API response when ready
+   * @returns {Promise}                                               a promise containing the API
+   *   response when ready
    */
-  this.traffic.changeWarnings = function(ipAddress, trafficWarningConfiguration) {
+  this.changeTrafficWarnings = function (ipAddress, trafficWarningConfiguration) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
     }
@@ -1301,19 +1301,19 @@ Robot = function(config) {
       throw new Error('Traffic warning configuration is missing.');
     }
 
-    if (!trafficWarningConfiguration.hasOwnProperty('enableWarnings')) {
+    if (! trafficWarningConfiguration.hasOwnProperty('enableWarnings')) {
       throw new Error('Traffic warning enable switch is missing.');
     }
 
-    if (!trafficWarningConfiguration.hasOwnProperty('hourlyThreshold')) {
+    if (! trafficWarningConfiguration.hasOwnProperty('hourlyThreshold')) {
       throw new Error('Hourly traffic threshold is missing.');
     }
 
-    if (!trafficWarningConfiguration.hasOwnProperty('dailyThreshold')) {
+    if (! trafficWarningConfiguration.hasOwnProperty('dailyThreshold')) {
       throw new Error('Daily traffic threshold is missing.');
     }
 
-    if (!trafficWarningConfiguration.hasOwnProperty('monthlyThreshold')) {
+    if (! trafficWarningConfiguration.hasOwnProperty('monthlyThreshold')) {
       throw new Error('Monthly traffic threshold is missing.');
     }
 
@@ -1338,16 +1338,6 @@ Robot = function(config) {
 
 
   /**
-   * SSH methods
-   *
-   * @public
-   *
-   * @type {{}}
-   */
-  this.ssh = {};
-
-
-  /**
    * retrieves either all SSH keys for this account or a single one if a fingerprint is given.
    *
    * @public
@@ -1355,7 +1345,7 @@ Robot = function(config) {
    * @param   {string}  [fingerprint]  an optional specific SSH key fingerprint to query
    * @returns {Promise}                a promise containing the API response when ready
    */
-  this.ssh.keys = function(fingerprint) {
+  this.querySshKeys = function (fingerprint) {
     var url = config.baseUrl + '/key' + (typeof fingerprint === 'undefined' ? '' : '/' + fingerprint);
 
     return new Promise((resolve, reject) => {
@@ -1375,10 +1365,9 @@ Robot = function(config) {
    * @param {string} fingerprint
    * @returns {Promise}
    */
-  this.ssh.key = function(fingerprint) {
+  this.querySshKey = function (fingerprint) {
     return this.keys(fingerprint);
   }
-}
-;
+};
 
 module.exports = Robot;
