@@ -1549,6 +1549,10 @@ const ServerCache = new WeakMap();
  * @returns {*}
  */
 Robot.prototype.registerServer = function(ipAddress) {
+  if (typeof ipAddress === 'undefined' || ipAddress.length < 7) {
+    throw new Error('Missing IP address');
+  }
+
   if (!ServerCache.has(this))
     ServerCache.set(this, new Map());
   const thisCache = ServerCache.get(this);
@@ -1605,6 +1609,10 @@ const StorageBoxCache = new WeakMap();
  * @returns {*}
  */
 Robot.prototype.registerStorageBox = function(id) {
+  if (typeof id === 'undefined' || id.length === 0) {
+    throw new Error('Missing storageBox ID');
+  }
+
   if (!StorageBoxCache.has(this))
     StorageBoxCache.set(this, new Map());
   const thisCache = StorageBoxCache.get(this);
