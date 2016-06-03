@@ -30,6 +30,14 @@ class Robot {
       throw new Error('Missing configuration data');
     }
 
+    if (! config.hasOwnProperty('username') || config.username.length === 0) {
+      throw new Error('Missing API username');
+    }
+
+    if (! config.hasOwnProperty('password') || config.password.length === 0) {
+      throw new Error('Missing API password');
+    }
+
     // set the base URL to the API if it has not been overwritten by configuration
     if (!config.hasOwnProperty('baseUrl')) {
       config.baseUrl = 'https://robot-ws.your-server.de/';

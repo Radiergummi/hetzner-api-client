@@ -7,8 +7,8 @@
     "api",
     "client"
   ],
-  "homepage": "https://github.com/Radiergummi/hetzner-api-client",
 
+  "homepage": "https://github.com/Radiergummi/hetzner-api-client",
   "bugs": {
     "url": "https://github.com/Radiergummi/hetzner-api-client/issues",
     "email": "m@9dev.de"
@@ -22,8 +22,23 @@
   "license": "Apache-2.0",
   "author": "Moritz Friedrich <m@9dev.de> (http://moritzfriedrich.com)",
 
+  "engines": {
+    "node": ">=6.2.0"
+  },
+
   "dependencies": {
     "colors": "^1.1.2",
     "node-rest-client": "^1.8.0"
+  },
+
+  "devDependencies": {
+    "chai": "^3.5.0",
+    "chai-as-promised": "^5.3.0",
+    "mocha": "^2.5.3",
+    "restify": "^4.1.0"
+  },
+
+  "scripts": {
+    "test": "./node_modules/.bin/mocha --reporter spec test/apiClientTests.js"
   }
 }
