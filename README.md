@@ -69,5 +69,10 @@ thanos.updateReverseDns('new.pointer.record.tld').then( /* ... */ )
 ## Current status
 I'm still in the process of adding API methods. Currently, around 40% are implemented, some need a final naming scheme and if necessary, some more will be rewritten. So even if the current version works as is, you should not rely on this in production. Though of course you can speed this up by committing :)
 
+## A word on tests
+To start the tests, simply use `npm test`.  
+Obviously many API methods are pretty destructive, so in order to be able to test everything thoroughly, I decided to implement a simple pseudo-Hetzner API webserver based on [restify](http://restify.com/). You can find it in the `test` folder as `apiServer.js`. It starts on port 8080 and tries to behave as exactly as possible as the original Hetzner API. That way, I can test the client safely and you can test the scripts you'll use it for. 
+  This is a freaking load of additional work though, so I'd appreciate some help here.
+
 ## API Documentation
 Official API docs can be found [here](https://wiki.hetzner.de/index.php/Robot_Webservice/en).
