@@ -81,21 +81,34 @@ class Robot {
    *
    * @private
    *
-   * @param response
-   * @param rawData
-   * @param resolve
-   * @param reject
+   * @param   {object}   response    the parsed response object 
+   * @param   {number}   statusCode  the response HTTP status code
+   * @param   {Function} resolve     the promise resolver
+   * @param   {Function} reject      the promise rejector
    *
-   * @returns {*}
+   * @returns {*}                    the parsed response object or error message string
    */
-  _parseResponse (response, rawData, resolve, reject) {
+  _parseResponse (response, statusCode, resolve, reject) {
 
     // check if we have a negative response code
-    if (!(rawData.statusCode === 200 || rawData.statusCode === 201)) {
-      return reject((response.error.code + ': ' + response.error.message).red);
+    if (!(statusCode === 200 || statusCode === 201)) {
+      try {
+        return reject((response.error.code + ': ' + response.error.message).red);
+      }
+      
+      /**
+       * if there appeared an error while rejecting the error, most likely the response
+       * lacked the error object or one of its properties, so just return the response
+       * itself to avoid trouble
+       */
+      catch (unexpectedResponseError) {
+        return reject(response);
+      }
     }
+    
+    // TODO: Implement JSON/YAML parser here
 
-    // return indented JSON
+    // return response
     return resolve(response);
   }
 
@@ -121,7 +134,7 @@ class Robot {
           headers: { "Content-Type": "application/json" },
           data:    data
         },
-        (response, rawData) => this._parseResponse(response, rawData, resolve, reject)
+        (response, rawData) => this._parseResponse(response, rawData.statusCode, resolve, reject)
       ).on('error', (error) => reject(error));
     });
   }
