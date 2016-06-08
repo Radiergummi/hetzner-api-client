@@ -1,4 +1,4 @@
-# hetzner-api-client
+# hetzner-api-client ![Build status](https://api.travis-ci.org/Radiergummi/hetzner-api-client.svg)
 A nodeJS client for the Hetzner Robot API  
 
 *Please note: I am in no way affiliated with Hetzner Online GmbH. I am just a developer trying to ease his work with a flexible API client.*
