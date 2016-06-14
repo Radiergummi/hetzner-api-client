@@ -1046,7 +1046,7 @@ class Robot {
    * @returns {Promise}                a promise containing the API response when ready
    */
   querySSHKeys (fingerprint) {
-    var ur = '/key' + (typeof fingerprint === 'undefined' ? '' : '/' + fingerprint);
+    var uri = '/key' + (typeof fingerprint === 'undefined' ? '' : '/' + fingerprint);
 
     return this._createRequest('get', uri)
   }
@@ -1061,7 +1061,7 @@ class Robot {
    * @returns {Promise}
    */
   querySSHKey (fingerprint) {
-    return querySSHKeys(fingerprint);
+    return this.querySSHKeys(fingerprint);
   }
 
 
@@ -1259,6 +1259,7 @@ class Robot {
       type: 'stop'
     });
   }
+
 
   shutdownVServer (ipAddress) {
     if (typeof ipAddress === 'undefined') {

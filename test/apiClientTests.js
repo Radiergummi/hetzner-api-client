@@ -17,12 +17,27 @@ var chai           = require('chai'),
 chai.use(chaiAsPromised);
 
 // load the api client
-var Robot       = require('../index'),
-    robotConfig = {
-      username: 'test',
-      password: 'test',
-      baseUrl:  'http://localhost:8080'
-    };
+var Robot = require('../index');
+
+/*****************************************************************
+ * WARNING! DO NOT CHANGE THIS TO YOUR REAL CREDENTIALS AND URL! *
+ *****************************************************************
+ *
+ * These tests will not only fail on a real account, but could
+ * cause serious harm to any real existing servers! Things like
+ * cancellation, resets and data deletion will be performed
+ * without asking politely if you really want to shovel your
+ * grave. Which is exactly why I decided to reverse-engineer the
+ * API-Server: to provide a testing-safe environment.
+ *
+ * Should you insist on being a moron, I won't take any
+ * credits for that!
+ */
+var robotConfig = {
+  username: 'test',
+  password: 'test',
+  baseUrl:  'http://localhost:8080'
+};
 
 describe('Setup work', function() {
   it('Should not start without configuration', function() {
@@ -153,16 +168,19 @@ describe('Server methods', function() {
 
 describe('StorageBox methods', function() {
   it('Should fetch information about all storageBoxes', function(done) {
-    var robot = new Robot(robotConfig);
+    var robot           = new Robot(robotConfig),
+        expectedOutcome = apiServer.referenceDatabase[ 'test' ].storageBoxes.length;
 
     expect(robot.queryStorageBoxes())
-      .to.eventually.deep.equal(apiServer.referenceDatabase[ 'test' ].storageBoxes).notify(done);
+      .to.eventually.have.length(expectedOutcome).notify(done);
   });
 
   it('Should fetch information about an individual storageBox', function(done) {
-    var robot = new Robot(robotConfig);
+    var robot           = new Robot(robotConfig),
+        expectedOutcome = apiServer.referenceDatabase[ 'test' ].storageBoxes[ 0 ].storagebox.name;
 
-    expect(robot.queryStorageBox(123456)).to.eventually.deep.equal(apiServer.referenceDatabase[ 'test' ].storageBoxes[0]).notify(done);
+    expect(robot.queryStorageBox(123456))
+      .to.eventually.have.deep.property('0.storagebox.name', expectedOutcome).notify(done);
   });
 
   it('Should change a storageBox name', function(done) {
@@ -171,7 +189,51 @@ describe('StorageBox methods', function() {
 
     robot.updateStorageBoxName(123456, newName).then(function(response) {
       expect(robot.queryStorageBox(123456))
-        .to.eventually.have.deep.property('storagebox.name', newName).notify(done);
+        .to.eventually.have.deep.property('0.storagebox.name', newName).notify(done);
     });
+  });
+
+  it('Should fetch information about all snapshots of an individual storageBox', function(done) {
+    var robot           = new Robot(robotConfig),
+        storageBoxId    = 123456,
+        expectedOutcome = apiServer.referenceDatabase.test.storageBoxes[ 0 ].storagebox.snapshots;
+
+    expect(robot.queryStorageBoxSnapshots(storageBoxId)).to.eventually.deep.equal(expectedOutcome).notify(done);
+  });
+});
+
+
+/**
+ * Test all SSH key methods
+ */
+describe('SSH Key methods', function() {
+  it('Should fetch information about all keys', function(done) {
+    var robot = new Robot(robotConfig);
+
+    expect(robot.querySSHKeys()).to.eventually.deep.equal(apiServer.referenceDatabase.test.sshKeys).notify(done);
+  });
+
+  it('Should fetch information about an individual key', function(done) {
+    var robot          = new Robot(robotConfig),
+        keyFingerprint = apiServer.referenceDatabase.test.sshKeys[ 0 ].key.fingerprint;
+
+    expect(robot.querySSHKey(keyFingerprint)).to.eventually.deep.equal([ apiServer.referenceDatabase.test.sshKeys[ 0 ] ]).notify(done);
+  });
+
+  it('Should change a keys name', function(done) {
+    var robot          = new Robot(robotConfig),
+        keyFingerprint = apiServer.referenceDatabase.test.sshKeys[ 0 ].key.fingerprint,
+        newKeyName     = 'newChangedName';
+
+    expect(robot.updateSSHKeyName(keyFingerprint, newKeyName))
+      .to.eventually.have.deep.property('0.key.name', newKeyName).notify(done);
+  });
+
+  it('Should delete a key', function(done) {
+    var robot          = new Robot(robotConfig),
+        keyFingerprint = apiServer.referenceDatabase.test.sshKeys[ 0 ].key.fingerprint;
+
+    expect(robot.removeSSHKey(keyFingerprint))
+      .to.be.fulfilled.notify(done);
   });
 });
