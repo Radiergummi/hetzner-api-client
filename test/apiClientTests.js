@@ -198,7 +198,45 @@ describe('StorageBox methods', function() {
         storageBoxId    = 123456,
         expectedOutcome = apiServer.referenceDatabase.test.storageBoxes[ 0 ].storagebox.snapshots;
 
-    expect(robot.queryStorageBoxSnapshots(storageBoxId)).to.eventually.deep.equal(expectedOutcome).notify(done);
+    expect(robot.queryStorageBoxSnapshots(storageBoxId))
+      .to.eventually.deep.equal(expectedOutcome).notify(done);
+  });
+
+  it('Should create new snapshots for a storageBox', function(done) {
+    var robot           = new Robot(robotConfig),
+        storageBoxId    = 123456,
+
+        // current amount of snapshots plus one for the newly created
+        expectedOutcome = apiServer.referenceDatabase.test.storageBoxes[ 0 ].storagebox.snapshots.length + 1;
+
+    robot.createStorageBoxSnapshot(storageBoxId).then(function() {
+      expect(robot.queryStorageBoxSnapshots(storageBoxId))
+        .to.eventually.have.length(expectedOutcome).notify(done);
+    });
+  });
+
+  it('Should delete a specific snapshot of a storageBox', function(done) {
+    var robot        = new Robot(robotConfig),
+        storageBoxId = 123456,
+        snapshotName = '2015-12-21T12-40-38';
+
+    expect(robot.removeStorageBoxSnapshot(storageBoxId, snapshotName))
+
+      // the API will only issue an empty 200 response to this, so accept the absence
+      // of errors as a success case
+      .to.be.fulfilled.notify(done);
+  });
+
+  it('Should revert to a specific snapshot of a storageBox', function(done) {
+    var robot        = new Robot(robotConfig),
+        storageBoxId = 123456,
+        snapshotName = '2015-12-21T12-40-39';
+
+    expect(robot.revertStorageBoxSnapshot(storageBoxId, snapshotName))
+
+      // the API will only issue an empty 200 response to this, so accept the absence
+      // of errors as a success case
+      .to.be.fulfilled.notify(done);
   });
 });
 
@@ -210,14 +248,16 @@ describe('SSH Key methods', function() {
   it('Should fetch information about all keys', function(done) {
     var robot = new Robot(robotConfig);
 
-    expect(robot.querySSHKeys()).to.eventually.deep.equal(apiServer.referenceDatabase.test.sshKeys).notify(done);
+    expect(robot.querySSHKeys())
+      .to.eventually.deep.equal(apiServer.referenceDatabase.test.sshKeys).notify(done);
   });
 
   it('Should fetch information about an individual key', function(done) {
     var robot          = new Robot(robotConfig),
         keyFingerprint = apiServer.referenceDatabase.test.sshKeys[ 0 ].key.fingerprint;
 
-    expect(robot.querySSHKey(keyFingerprint)).to.eventually.deep.equal([ apiServer.referenceDatabase.test.sshKeys[ 0 ] ]).notify(done);
+    expect(robot.querySSHKey(keyFingerprint))
+      .to.eventually.deep.equal([ apiServer.referenceDatabase.test.sshKeys[ 0 ] ]).notify(done);
   });
 
   it('Should change a keys name', function(done) {
@@ -234,6 +274,9 @@ describe('SSH Key methods', function() {
         keyFingerprint = apiServer.referenceDatabase.test.sshKeys[ 0 ].key.fingerprint;
 
     expect(robot.removeSSHKey(keyFingerprint))
+
+      // the API will only issue an empty 200 response to this, so accept the absence
+      // of errors as a success case
       .to.be.fulfilled.notify(done);
   });
 });

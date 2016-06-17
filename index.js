@@ -1213,7 +1213,7 @@ class Robot {
       throw new Error('StorageBox ID is missing.');
     }
 
-    return this._createRequest('post', '/storagebox/' + storageBoxId + '/snapshot')
+    return this._createRequest('post', '/storagebox/' + storageBoxId + '/snapshot');
   }
 
 
@@ -1235,7 +1235,31 @@ class Robot {
       throw new Error('Snapshot name is missing.');
     }
 
-    return this._createRequest('delete', '/storagebox/' + storageBoxId + '/snapshot/' + snapshotName)
+    return this._createRequest('delete', '/storagebox/' + storageBoxId + '/snapshot/' + snapshotName);
+  }
+
+
+  /**
+   * Revert to a storageBox snapshot
+   *
+   * @public
+   *
+   * @param   {number}  storageBoxId  the ID number for a specific storageBox
+   * @param   {string}  snapshotName  the name of the snapshot to revert to
+   * @returns {Promise}
+   */
+  revertStorageBoxSnapshot (storageBoxId, snapshotName) {
+    if (typeof storageBoxId === 'undefined') {
+      throw new Error('StorageBox ID is missing.');
+    }
+
+    if (typeof snapshotName === 'undefined') {
+      throw new Error('Snapshot name is missing.');
+    }
+
+    return this._createRequest('post', '/storagebox/' + storageBoxId + '/snapshot/' + snapshotName, {
+      revert: true
+    });
   }
 
 

@@ -358,7 +358,7 @@ var clientsDatabase = {
 server.referenceDatabase = clientsDatabase;
 
 /**
- * Server routes
+ * Server API methods
  */
 server.get('/server', function(req, res, next) {
 
@@ -428,6 +428,10 @@ server.post('/server/:ipAddress', function(req, res, next) {
   });
 });
 
+
+/**
+ * Storagebox API methods
+ */
 server.get('/storagebox', function(req, res, next) {
 
   // query client data from the mockup database
@@ -514,12 +518,98 @@ server.post('/storagebox/:id', function(req, res, next) {
   });
 });
 
+
+/**
+ * Storagebox snapshot API methods
+ */
 server.get('/storagebox/:id/snapshot', function(req, res, next) {
   util.getStorageBoxById(req, res, function(data) {
     res.send(data.storagebox.snapshots);
   });
 });
 
+server.post('/storagebox/:id/snapshot', function(req, res, next) {
+  util.getStorageBoxById(req, res, function(data) {
+    var storagebox = data.storagebox;
+
+    storagebox.snapshots.push({
+      name:      '',
+      timestamp: '',
+      size:      Math.floor((Math.random() * 100) + 1) * 100
+    });
+
+    return res.send(200, '');
+  });
+});
+
+server.del('/storagebox/:id/snapshot/:name', function(req, res, next) {
+  var storageboxes = clientsDatabase[ req.username ].storageBoxes;
+
+  for (var i = 0; i < storageboxes.length; i++) {
+
+    if (storageboxes[ i ].storagebox.id === parseInt(req.params.id)) {
+      var storagebox = storageboxes[ i ].storagebox;
+
+      for (var j = 0; j < storagebox.snapshots.length; j++) {
+
+        if (storagebox.snapshots[ j ].snapshot.name === req.params.name) {
+          storagebox.snapshots.splice(j, 1);
+
+          return res.send(200, '');
+        }
+      }
+
+      return res.send(404, {
+        status:  404,
+        code:    'SNAPSHOT_NOT_FOUND',
+        message: 'Snapshot with name ' + req.params.name + ' not found'
+      });
+    }
+  }
+
+  return res.send(404, {
+    status:  404,
+    code:    'STORAGEBOX_NOT_FOUND',
+    message: 'Storage Box with ID ' + req.params.id + ' not found'
+  });
+});
+
+server.post('/storagebox/:id/snapshot/:name', function(req, res, next) {
+  util.getStorageBoxById(req, res, function(data) {
+    var storagebox = data.storagebox;
+
+    if (!req.params.revert) {
+
+      return res.send(400, {
+        status:  400,
+        code:    'INVALID_INPUT',
+        message: 'Invalid input parameters'
+      });
+    }
+
+    for (var i = 0; i < storagebox.snapshots.length; i++) {
+
+
+      if (storagebox.snapshots[ i ].snapshot.name === req.params.name) {
+
+        // Voodoo: revert to the snapshot.
+
+        return res.send(200, '');
+      }
+    }
+
+    return res.send(404, {
+      status:  404,
+      code:    'SNAPSHOT_NOT_FOUND',
+      message: '	Snapshot with name ' + req.params.name + ' not found'
+    });
+  });
+});
+
+
+/**
+ * Reset API methods
+ */
 server.get('/reset', function(req, res, next) {
 
 });
@@ -527,6 +617,10 @@ server.get('/reset', function(req, res, next) {
 server.get('/reset/:ipAddress', function(req, res, next) {
 });
 
+
+/**
+ * SSH Key API methods
+ */
 server.get('/key', function(req, res, next) {
   if (clientsDatabase[ req.username ].sshKeys.length === 0) {
     res.send(404, {
@@ -570,8 +664,8 @@ server.del('/key/:fingerprint', function(req, res, next) {
         } catch (error) {
           return res.send(500, {
             error: {
-              status: 500,
-              code: 'KEY_DELETE_FAILED',
+              status:  500,
+              code:    'KEY_DELETE_FAILED',
               message: 'Deleting the key failed due do an internal error'
             }
           })
@@ -583,8 +677,8 @@ server.del('/key/:fingerprint', function(req, res, next) {
 
     return res.send(404, {
       error: {
-        status: 404,
-        code: 'NOT_FOUND',
+        status:  404,
+        code:    'NOT_FOUND',
         message: 'Key not found'
       }
     })
