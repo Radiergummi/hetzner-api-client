@@ -235,7 +235,29 @@ var clientsDatabase = {
         }
       }
     ],
-    vServers:     [],
+    vServers:     [
+      {
+        vserver: {
+          name:       'vserver-1',
+          vserver_ip: '223.223.223.223',
+          online:     true
+        }
+      },
+      {
+        vserver: {
+          name:       'vserver-2',
+          vserver_ip: '224.224.224.224',
+          online:     true
+        }
+      },
+      {
+        vserver: {
+          name:       'vserver-3',
+          vserver_ip: '225.225.225.225',
+          online:     false
+        }
+      }
+    ],
     sshKeys:      [
       {
         key: {
@@ -684,6 +706,74 @@ server.del('/key/:fingerprint', function(req, res, next) {
     })
   });
 });
+
+/**
+ * VServer methods
+ */
+server.post('/vserver/:ipAddress/command', function(req, res, next) {
+  var vServers = clientsDatabase[ req.username ].vServers;
+
+  for (var i = 0; i < vServers.length; i++) {
+    var vServer = vServers[ i ].vserver;
+
+    if (vServer.vserver_ip === req.params.ipAddress) {
+      switch (req.params.type) {
+        case 'start':
+          if (vServer.online) {
+            return res.send(500, {
+              status:  500,
+              code:    'INTERNAL_ERROR',
+              message: 'Command failed due to an internal error'
+            });
+          }
+
+          // "boot" the vServer
+
+          vServer.online = true;
+
+          return res.send(200, '');
+          break;
+        case 'stop':
+          if (! vServer.online) {
+            return res.send(500, {
+              status:  500,
+              code:    'INTERNAL_ERROR',
+              message: 'Command failed due to an internal error'
+            });
+          }
+
+          // "halt" the vServer
+
+          vServer.online = false;
+
+          return res.send(200, '');
+          break;
+        case 'shutdown':
+          if (! vServer.online) {
+            return res.send(500, {
+              status:  500,
+              code:    'INTERNAL_ERROR',
+              message: 'Command failed due to an internal error'
+            });
+          }
+
+          // "shutdown" the vServer
+
+          vServer.online = false;
+
+          return res.send(200, '');
+          break;
+      }
+    }
+  }
+
+  return res.send(404, {
+    status:  404,
+    code:    'SERVER_NOT_FOUND',
+    message: 'Server with IP ' + req.params.ipAddress + ' not found'
+  });
+});
+
 
 /**
  * 401 Error handler, mimicking the Hetzner API

@@ -166,6 +166,9 @@ describe('Server methods', function() {
   });
 });
 
+/**
+ * Test all StorageBox methods
+ */
 describe('StorageBox methods', function() {
   it('Should fetch information about all storageBoxes', function(done) {
     var robot           = new Robot(robotConfig),
@@ -274,6 +277,52 @@ describe('SSH Key methods', function() {
         keyFingerprint = apiServer.referenceDatabase.test.sshKeys[ 0 ].key.fingerprint;
 
     expect(robot.removeSSHKey(keyFingerprint))
+
+      // the API will only issue an empty 200 response to this, so accept the absence
+      // of errors as a success case
+      .to.be.fulfilled.notify(done);
+  });
+});
+
+describe('vServer methods', function() {
+  it('Should start a vServer', function(done) {
+    var robot = new Robot(robotConfig),
+        ipAddress = '225.225.225.225';
+
+    expect(robot.startVServer(ipAddress))
+
+      // the API will only issue an empty 200 response to this, so accept the absence
+      // of errors as a success case
+      .to.be.fulfilled.notify(done);
+  });
+
+  it('Should stop a vServer', function(done) {
+    var robot = new Robot(robotConfig),
+        ipAddress = '223.223.223.223';
+
+    expect(robot.stopVServer(ipAddress))
+
+      // the API will only issue an empty 200 response to this, so accept the absence
+      // of errors as a success case
+      .to.be.fulfilled.notify(done);
+  });
+
+  it('Should shutdown a vServer', function(done) {
+    var robot = new Robot(robotConfig),
+        ipAddress = '225.225.225.225';
+
+    expect(robot.shutdownVServer(ipAddress))
+
+      // the API will only issue an empty 200 response to this, so accept the absence
+      // of errors as a success case
+      .to.be.fulfilled.notify(done);
+  });
+
+  it('Should restart a server', function(done) {
+    var robot = new Robot(robotConfig),
+        ipAddress = '224.224.224.224';
+
+    expect(robot.restartVServer(ipAddress))
 
       // the API will only issue an empty 200 response to this, so accept the absence
       // of errors as a success case

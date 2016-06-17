@@ -81,7 +81,7 @@ class Robot {
    *
    * @private
    *
-   * @param   {object}   response    the parsed response object 
+   * @param   {object}   response    the parsed response object
    * @param   {number}   statusCode  the response HTTP status code
    * @param   {Function} resolve     the promise resolver
    * @param   {Function} reject      the promise rejector
@@ -95,7 +95,7 @@ class Robot {
       try {
         return reject((response.error.code + ': ' + response.error.message).red);
       }
-      
+
       /**
        * if there appeared an error while rejecting the error, most likely the response
        * lacked the error object or one of its properties, so just return the response
@@ -105,7 +105,7 @@ class Robot {
         return reject(response);
       }
     }
-    
+
     // TODO: Implement JSON/YAML parser here
 
     // return response
@@ -1263,6 +1263,14 @@ class Robot {
   }
 
 
+  /**
+   * start a virtual server
+   *
+   * @public
+   *
+   * @param   {string}  ipAddress  the IP address of the client server
+   * @returns {Promise}
+   */
   startVServer (ipAddress) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
@@ -1274,6 +1282,14 @@ class Robot {
   }
 
 
+  /**
+   * stop a virtual server
+   *
+   * @public
+   *
+   * @param   {string}  ipAddress  the IP address of the client server
+   * @returns {Promise}
+   */
   stopVServer (ipAddress) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
@@ -1285,6 +1301,14 @@ class Robot {
   }
 
 
+  /**
+   * shut a virtual server down
+   *
+   * @public
+   *
+   * @param   {string}  ipAddress  the IP address of the client server
+   * @returns {Promise}
+   */
   shutdownVServer (ipAddress) {
     if (typeof ipAddress === 'undefined') {
       throw new Error('Server IP is missing.');
@@ -1292,6 +1316,31 @@ class Robot {
 
     return this._createRequest('post', '/vserver/' + ipAddress + '/command', {
       type: 'shutdown'
+    });
+  }
+
+
+  /**
+   * restart a virtual server by first stopping, then starting it again
+   *
+   * @public
+   *
+   * @param   {string}  ipAddress  the IP address of the client server
+   * @returns {Promise}
+   */
+  restartVServer (ipAddress) {
+    var that = this;
+
+    if (typeof ipAddress === 'undefined') {
+      throw new Error('Server IP is missing.');
+    }
+
+    return this._createRequest('post', '/vserver/' + ipAddress + '/command', {
+      type: 'shutdown'
+    }).then(function() {
+      return that._createRequest('post', '/vserver/' + ipAddress + '/command', {
+        type: 'start'
+      });
     });
   }
 }
