@@ -740,9 +740,7 @@ class Robot {
 
     resetType = resetType || 'sw';
 
-    var data = {
-      type: resetType
-    };
+    var data = "type="+resetType;
 
     return this._createRequest('post', '/reset/' + ipAddress, data);
   }
