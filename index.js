@@ -126,7 +126,7 @@ class Robot {
   _createRequest (method, uri, data) {
 
     data = data || undefined;
-    var contentType = method=="POST"?"application/x-www-form-urlencoded":"application/json";
+    var contentType = method.toLowerCase()=="post"?"application/x-www-form-urlencoded":"application/json";
 
     return new Promise((resolve, reject) => {
       this._apiClient[ method ](
