@@ -126,12 +126,13 @@ class Robot {
   _createRequest (method, uri, data) {
 
     data = data || undefined;
+    var contentType = method.toLowerCase()=="post"?"application/x-www-form-urlencoded":"application/json";
 
     return new Promise((resolve, reject) => {
       this._apiClient[ method ](
         this.config.baseUrl + uri,
         {
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": contentType },
           data:    data
         },
         (response, rawData) => this._parseResponse(response, rawData.statusCode, resolve, reject)
@@ -739,9 +740,7 @@ class Robot {
 
     resetType = resetType || 'sw';
 
-    var data = {
-      type: resetType
-    };
+    var data = "type="+resetType;
 
     return this._createRequest('post', '/reset/' + ipAddress, data);
   }
