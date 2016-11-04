@@ -5,15 +5,14 @@
  require
  */
 
-var restify = require('restify');
-
-var apiCredentials = {
+const restify        = require('restify');
+const apiCredentials = {
   username: 'test',
   password: 'test'
 };
 
 // create the pseudo API webserver
-var server = restify.createServer({
+const server = restify.createServer({
   name: 'pseudo-hetzner-api'
 });
 
@@ -45,7 +44,7 @@ server.use((req, res, next) => {
 /**
  * Mock up Configuration
  */
-var clientsDatabase = {
+const clientsDatabase = {
   test: {
     network:      {
       ipAddresses: [
@@ -94,6 +93,7 @@ var clientsDatabase = {
         server: {
           server_ip:     '123.123.123.123',
           server_number: 123,
+          server_name:   'server1',
           product:       'DS 3000',
           dc:            6,
           traffic:       '5 TB',
@@ -108,6 +108,7 @@ var clientsDatabase = {
         server: {
           server_ip:     '124.124.124.124',
           server_number: 124,
+          server_name:   'server2',
           product:       'DS 3000',
           dc:            6,
           traffic:       '5 TB',
@@ -122,6 +123,7 @@ var clientsDatabase = {
         server: {
           server_ip:     '125.125.125.125',
           server_number: 125,
+          server_name:   'server3',
           product:       'DS 3000',
           dc:            6,
           traffic:       '5 TB',
@@ -282,100 +284,100 @@ var clientsDatabase = {
     transactions: []
   }
 },
-    apiData         = {
-      bootConfigurationStore: {},
-      products:               {},
-      marketProducts:         {}
-    },
-    util            = {
-      getStorageBoxById:      function(req, res, callback) {
+      apiData         = {
+        bootConfigurationStore: {},
+        products:               {},
+        marketProducts:         {}
+      },
+      util            = {
+        getStorageBoxById:      function(req, res, callback) {
 
-        // query client data from the mockup database
-        var clientData = clientsDatabase[ req.username ];
+          // query client data from the mockup database
+          var clientData = clientsDatabase[ req.username ];
 
-        if (clientData.storageBoxes.length === 0) {
-          res.send(404, {
+          if (clientData.storageBoxes.length === 0) {
+            return res.send(404, {
+              error: {
+                status:  404,
+                code:    'NOT_FOUND',
+                message: 'No storagebox found'
+              }
+            });
+          }
+
+          for (var i = 0; i < clientData.storageBoxes.length; i++) {
+            if (parseInt(req.params.id) === clientData.storageBoxes[ i ].storagebox.id) {
+              return callback(clientData.storageBoxes[ i ]);
+            }
+          }
+
+          return res.send(404, {
             error: {
               status:  404,
-              code:    'NOT_FOUND',
-              message: 'No storagebox found'
+              code:    'STORAGEBOX_NOT_FOUND',
+              message: 'Storagebox with ID ' + req.params.id + ' not found'
             }
           });
-        }
+        },
+        getServerByIp:          function(req, res, callback) {
 
-        for (var i = 0; i < clientData.storageBoxes.length; i++) {
-          if (parseInt(req.params.id) === clientData.storageBoxes[ i ].storagebox.id) {
-            return callback(clientData.storageBoxes[ i ]);
+          // query client data from the mockup database
+          var clientData = clientsDatabase[ req.username ];
+
+          if (clientData.servers.length === 0) {
+            return res.send(404, {
+              error: {
+                status:  404,
+                code:    'NOT_FOUND',
+                message: 'No server found'
+              }
+            });
           }
-        }
 
-        res.send(404, {
-          error: {
-            status:  404,
-            code:    'STORAGEBOX_NOT_FOUND',
-            message: 'Storagebox with ID ' + req.params.id + ' not found'
+          for (var i = 0; i < clientData.servers.length; i++) {
+            if (req.params.ipAddress === clientData.servers[ i ].server.server_ip) {
+              return callback(clientData.servers[ i ]);
+            }
           }
-        });
-      },
-      getServerByIp:          function(req, res, callback) {
 
-        // query client data from the mockup database
-        var clientData = clientsDatabase[ req.username ];
-
-        if (clientData.servers.length === 0) {
-          res.send(404, {
+          return res.send(404, {
             error: {
               status:  404,
-              code:    'NOT_FOUND',
-              message: 'No server found'
+              code:    'SERVER_NOT_FOUND',
+              message: 'Server with IP ' + req.params.ipAddress + ' not found'
             }
           });
-        }
+        },
+        getSSHKeyByFingerprint: function(req, res, callback) {
+          var sshKeys = clientsDatabase[ req.username ].sshKeys;
 
-        for (var i = 0; i < clientData.servers.length; i++) {
-          if (req.params.ipAddress === clientData.servers[ i ].server.server_ip) {
-            return callback(clientData.servers[ i ]);
+          if (sshKeys.length === 0) {
+            return res.send(404, {
+              error: {
+                status:  404,
+                code:    'NOT_FOUND',
+                message: 'No keys found'
+              }
+            })
           }
-        }
 
-        res.send(404, {
-          error: {
-            status:  404,
-            code:    'SERVER_NOT_FOUND',
-            message: 'Server with IP ' + req.params.ipAddress + ' not found'
+          for (var i = 0; i < sshKeys.length; i++) {
+            if (sshKeys[ i ].key.fingerprint === req.params.fingerprint) {
+              return callback([
+                sshKeys[ i ]
+              ]);
+            }
           }
-        });
-      },
-      getSSHKeyByFingerprint: function(req, res, callback) {
-        var sshKeys = clientsDatabase[ req.username ].sshKeys;
 
-        if (sshKeys.length === 0) {
-          res.send(404, {
+          return res.send(404, {
             error: {
               status:  404,
               code:    'NOT_FOUND',
-              message: 'No keys found'
+              message: 'Key not found'
             }
           })
         }
-
-        for (var i = 0; i < sshKeys.length; i++) {
-          if (sshKeys[ i ].key.fingerprint === req.params.fingerprint) {
-            return callback([
-              sshKeys[ i ]
-            ]);
-          }
-        }
-
-        res.send(404, {
-          error: {
-            status:  404,
-            code:    'NOT_FOUND',
-            message: 'Key not found'
-          }
-        })
-      }
-    };
+      };
 
 server.referenceDatabase = clientsDatabase;
 
@@ -388,7 +390,7 @@ server.get('/server', function(req, res, next) {
   var clientData = clientsDatabase[ req.username ];
 
   if (clientData.servers.length === 0) {
-    res.send(404, {
+    return res.send(404, {
       error: {
         status:  404,
         code:    'NOT_FOUND',
@@ -397,7 +399,7 @@ server.get('/server', function(req, res, next) {
     });
   }
 
-  res.send(clientData.servers);
+  return res.send(clientData.servers);
 });
 
 server.get('/server/:ipAddress', function(req, res, next) {
@@ -406,7 +408,7 @@ server.get('/server/:ipAddress', function(req, res, next) {
   var clientData = clientsDatabase[ req.username ];
 
   if (clientData.servers.length === 0) {
-    res.send(404, {
+    return res.send(404, {
       error: {
         status:  404,
         code:    'NOT_FOUND',
@@ -421,7 +423,7 @@ server.get('/server/:ipAddress', function(req, res, next) {
     }
   }
 
-  res.send(404, {
+  return res.send(404, {
     error: {
       status:  404,
       code:    'SERVER_NOT_FOUND',
@@ -431,8 +433,8 @@ server.get('/server/:ipAddress', function(req, res, next) {
 });
 
 server.post('/server/:ipAddress', function(req, res, next) {
-  if (typeof req.body.server_name !== 'string') {
-    res.send(400, {
+  if (typeof req.params.server_name !== 'string') {
+    return res.send(400, {
       error: {
         status:  400,
         code:    'INVALID_INPUT',
@@ -442,9 +444,9 @@ server.post('/server/:ipAddress', function(req, res, next) {
   }
 
   util.getServerByIp(req, res, function(data) {
-    data.server.name = req.body.server_name;
+    data.server.server_name = req.params.server_name;
 
-    res.send([
+    return res.send([
       data
     ]);
   });
@@ -509,8 +511,8 @@ server.get('/storagebox/:id', function(req, res, next) {
 });
 
 server.post('/storagebox/:id', function(req, res, next) {
-  if (typeof req.body.storagebox_name !== 'string') {
-    res.send(400, {
+  if (typeof req.params.storagebox_name !== 'string') {
+    return res.send(400, {
       error: {
         status:  400,
         code:    'INVALID_INPUT',
@@ -520,7 +522,7 @@ server.post('/storagebox/:id', function(req, res, next) {
   }
 
   util.getStorageBoxById(req, res, function(data) {
-    data.storagebox.name = req.body.storagebox_name;
+    data.storagebox.name = req.params.storagebox_name;
 
     var current    = data.storagebox,
         storageBox = [];
@@ -734,7 +736,7 @@ server.post('/vserver/:ipAddress/command', function(req, res, next) {
           return res.send(200, '');
           break;
         case 'stop':
-          if (! vServer.online) {
+          if (!vServer.online) {
             return res.send(500, {
               status:  500,
               code:    'INTERNAL_ERROR',
@@ -749,7 +751,7 @@ server.post('/vserver/:ipAddress/command', function(req, res, next) {
           return res.send(200, '');
           break;
         case 'shutdown':
-          if (! vServer.online) {
+          if (!vServer.online) {
             return res.send(500, {
               status:  500,
               code:    'INTERNAL_ERROR',

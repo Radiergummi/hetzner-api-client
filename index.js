@@ -5,8 +5,9 @@
  require
  */
 
-var colors = require('colors'),
-    Client = require('node-rest-client').Client;
+const colors         = require('colors'),
+      formUrlEncoded = require('form-urlencoded'),
+      Client         = require('node-rest-client').Client;
 
 /**
  * Main Robot API interface, contains all API method wrappers
@@ -96,11 +97,11 @@ class Robot {
         return reject((response.error.code + ': ' + response.error.message).red);
       }
 
-      /**
-       * if there appeared an error while rejecting the error, most likely the response
-       * lacked the error object or one of its properties, so just return the response
-       * itself to avoid trouble
-       */
+        /**
+         * if there appeared an error while rejecting the error, most likely the response
+         * lacked the error object or one of its properties, so just return the response
+         * itself to avoid trouble
+         */
       catch (unexpectedResponseError) {
         return reject(response);
       }
@@ -124,14 +125,23 @@ class Robot {
    * @returns {Promise}
    */
   _createRequest (method, uri, data) {
+    data            = data || undefined;
 
-    data = data || undefined;
+    let contentType = 'application/json';
+
+    if (method === 'post') {
+      data = formUrlEncoded(data, {
+        sorted: false
+      });
+
+      contentType = 'application/x-www-form-urlencoded';
+    }
 
     return new Promise((resolve, reject) => {
       this._apiClient[ method ](
         this.config.baseUrl + uri,
         {
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": contentType },
           data:    data
         },
         (response, rawData) => this._parseResponse(response, rawData.statusCode, resolve, reject)
@@ -168,7 +178,23 @@ class Robot {
       console.log(ServerCache.get(ipAddress));
     }
 
-    return this._createRequest('get', '/server/' + ipAddress);
+    var self = this;
+
+    /**
+     * return a HTTP request promise that holds the parsed JSON result on success,
+     * or an error message on failure. Additionally, a callback will be attached
+     * on success which stores the result properties for this server in eventually
+     * existing identified instances.
+     * That means, if this method is called on a registered server, it will hold
+     * the server properties afterwards.
+     */
+    return this._createRequest('get', '/server/' + ipAddress).then(function(data) {
+      for (let key in data.server) {
+        self.setServerProperty(key, data.server[ key ]);
+      }
+
+      return data;
+    });
   }
 
 
@@ -296,7 +322,7 @@ class Robot {
     }
 
     architecture = architecture || 64;
-    keys = keys || [];
+    keys         = keys || [];
 
     var data = {
       os:             operatingSystem,
@@ -1368,12 +1394,25 @@ Robot.prototype.registerServer = function(ipAddress) {
     throw new Error('Missing IP address');
   }
 
-  if (!ServerCache.has(this))
+  if (!ServerCache.has(this)) {
     ServerCache.set(this, new Map());
+  }
+
   const thisCache = ServerCache.get(this);
-  if (!thisCache.get(ipAddress))
+
+  if (!thisCache.get(ipAddress)) {
     thisCache.set(ipAddress, new IdentifiedServer(this, ipAddress));
+  }
+
   return thisCache.get(ipAddress);
+};
+
+Robot.prototype.setServerProperty = function(key, value) {
+  if (!ServerCache.has(this)) {
+    return;
+  }
+
+  ServerCache.get(this).get(this.ipAddress)[ key ] = value;
 };
 
 /**
@@ -1390,8 +1429,9 @@ class IdentifiedServer {
    * @constructor
    */
   constructor (identifiedServerInstance, ipAddress) {
-    this.identifiedServerInstance = identifiedServerInstance;
-    this.ipAddress = ipAddress;
+    this.identifiedServerInstance           = identifiedServerInstance;
+    this.identifiedServerInstance.ipAddress = ipAddress;
+    this.ipAddress                          = ipAddress;
   }
 }
 
@@ -1436,11 +1476,16 @@ Robot.prototype.registerStorageBox = function(id) {
     throw new Error('Missing storageBox ID');
   }
 
-  if (!StorageBoxCache.has(this))
+  if (!StorageBoxCache.has(this)) {
     StorageBoxCache.set(this, new Map());
+  }
+
   const thisCache = StorageBoxCache.get(this);
-  if (!thisCache.get(id))
+
+  if (!thisCache.get(id)) {
     thisCache.set(id, new IdentifiedStorageBox(this, id));
+  }
+
   return thisCache.get(id);
 };
 
@@ -1459,7 +1504,7 @@ class IdentifiedStorageBox {
    */
   constructor (IdentifiedStorageBoxInstance, id) {
     this.IdentifiedStorageBoxInstance = IdentifiedStorageBoxInstance;
-    this.id = id;
+    this.id                           = id;
   }
 }
 

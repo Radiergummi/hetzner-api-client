@@ -161,7 +161,7 @@ describe('Server methods', function() {
 
     robot.updateServerName('123.123.123.123', newName).then(function(response) {
       expect(robot.queryServer('123.123.123.123'))
-        .to.eventually.have.deep.property('server.name', newName).notify(done);
+        .to.eventually.have.deep.property('server.server_name', newName).notify(done);
     });
   });
 });
