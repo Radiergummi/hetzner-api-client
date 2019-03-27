@@ -369,6 +369,49 @@ class Robot {
 
 
   /**
+   * Query ip failover
+   *
+   * @public
+   *
+   * @param {string} failoverIp  the IP address of the failover IP
+   * @returns {Promise}
+   */
+  queryFailover (failoverIp) {
+    if (typeof failoverIp === 'undefined') {
+      throw new Error('Failover IP is missing.');
+    }
+
+    return this._createRequest('get', '/failover/' + failoverIp)
+  }
+
+
+  /**
+   * Set ip failover
+   *
+   * @public
+   *
+   * @param   {string} failoverIp              the IP address of the failover IP
+   * @param   {string} ipAddress               the IP address of the server
+   * @returns {Promise}
+   */
+  setFailover (failoverIp, ipAddress) {
+    if (typeof failoverIp === 'undefined') {
+      throw new Error('Failover IP is missing.');
+    }
+
+    if (typeof ipAddress === 'undefined') {
+      throw new Error('Server IP is missing.');
+    }
+
+    var data = {
+      active_server_ip: ipAddress
+    };
+
+    return this._createRequest('post', '/failover/' + failoverIp, data)
+  }
+
+
+  /**
    * Query available boot options for linux installation
    *
    * @public
