@@ -1,6 +1,6 @@
 {
   "name": "hetzner-api-client",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "A NodeJS client for the Hetzner Robot API",
   "keywords": [
     "hetzner",
@@ -23,13 +23,15 @@
   },
   "dependencies": {
     "colors": "^1.1.2",
+    "debug": "^3.1.0",
     "form-urlencoded": "^1.5.0",
-    "node-rest-client": "^1.8.0"
+    "js-yaml": "^3.13.0",
+    "node-rest-client": "^3.1.0"
   },
   "devDependencies": {
     "chai": "^3.5.0",
     "chai-as-promised": "^5.3.0",
-    "mocha": "^2.5.3",
+    "mocha": "^6.0.2",
     "restify": "^4.1.0"
   },
   "scripts": {
